@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>绘画数据采集画板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            padding: 15px;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+        }
+        button, select, input[type="color"] {
+            padding: 12px 18px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            background: #fff;
+        }
+        button:hover, button.active {
+            background-color: #e8f4ff;
+            border-color: #2196f3;
+        }
+        .canvas-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #sketchCanvas {
+            border: none;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            flex: 1;
+            touch-action: none;
+        }
+        .data-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .data-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .data-item {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 8px;
+            min-width: 120px;
+        }
+        .data-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .data-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        .chart-container {
+            width: 100%;
+            height: 200px;
+            margin-top: 10px;
+        }
+        @media (orientation: landscape) {
+            .container {
+                flex-direction: row;
+            }
+            .canvas-container {
+                width: 60%;
+            }
+            .data-panel {
+                width: 40%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-container">
+            <div class="toolbar">
+                <button id="penBtn" class="active">画笔</button>
+                <button id="eraserBtn">橡皮擦</button>
+                <label style="font-size:16px;">颜色：</label>
+                <input type="color" id="colorPicker" value="#000000">
+                <label style="font-size:16px;">粗细：</label>
+                <select id="lineWidth">
+                    <option value="2">2px</option>
+                    <option value="4">4px</option>
+                    <option value="6" selected>6px</option>
+                    <option value="8">8px</option>
+                    <option value="12">12px</option>
+                    <option value="16">16px</option>
+                </select>
+                <button id="clearBtn">清空画布</button>
+                <button id="startBtn">开始绘制</button>
+                <button id="endBtn">结束绘制</button>
+                <button id="saveBtn">保存数据</button>
+            </div>
+            <canvas id="sketchCanvas"></canvas>
+        </div>
+        <div class="data-panel">
+            <h3>实时动态数据</h3>
+            <div class="data-group">
+                <div class="data-item">
+                    <div class="data-label">思考时间(ms)</div>
+                    <div class="data-value" id="airTime">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">落笔时间(ms)</div>
+                    <div class="data-value" id="paperTime">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">空中轨迹长度(px)</div>
+                    <div class="data-value" id="airLength">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">纸面轨迹长度(px)</div>
+                    <div class="data-value" id="paperLength">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">笔画数</div>
+                    <div class="data-value" id="strokeNum">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">当前压力</div>
+                    <div class="data-value" id="currentPressure">0</div>
+                </div>
+            </div>
+            <h3>绘制完成数据</h3>
+            <div class="data-group" id="finalDataGroup" style="display: none;">
+                <div class="data-item">
+                    <div class="data-label">总时间(ms)</div>
+                    <div class="data-value" id="timeTotal">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">思考时间占比</div>
+                    <div class="data-value" id="RAT">0%</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">落笔时间占比</div>
+                    <div class="data-value" id="RAPT">0%</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">空中/纸面轨迹比</div>
+                    <div class="data-value" id="RAPL">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">平均笔画长度(px)</div>
+                    <div class="data-value" id="strokeLAve">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">平均压力</div>
+                    <div class="data-value" id="pressureAve">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">绘画面积(px²)</div>
+                    <div class="data-value" id="CFA">0</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="pressureChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // 初始化Chart.js
+        const pressureCtx = document.getElementById('pressureChart').getContext('2d');
+        let pressureChart = new Chart(pressureCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '压力值',
+                    data: [],
+                    borderColor: 'rgba(33, 150, 243, 1)',
+                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 1,
+                        title: {
+                            display: true,
+                            text: '压力值(0-1)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '时间(ms)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // 获取DOM元素
+        const canvas = document.getElementById('sketchCanvas');
+        const ctx = canvas.getContext('2d');
+        const penBtn = document.getElementById('penBtn');
+        const eraserBtn = document.getElementById('eraserBtn');
+        const colorPicker = document.getElementById('colorPicker');
+        const lineWidth = document.getElementById('lineWidth');
+        const clearBtn = document.getElementById('clearBtn');
+        const startBtn = document.getElementById('startBtn');
+        const endBtn = document.getElementById('endBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const airTimeEl = document.getElementById('airTime');
+        const paperTimeEl = document.getElementById('paperTime');
+        const airLengthEl = document.getElementById('airLength');
+        const paperLengthEl = document.getElementById('paperLength');
+        const strokeNumEl = document.getElementById('strokeNum');
+        const currentPressureEl = document.getElementById('currentPressure');
+        const timeTotalEl = document.getElementById('timeTotal');
+        const RATEl = document.getElementById('RAT');
+        const RAPTEl = document.getElementById('RAPT');
+        const RAPLEl = document.getElementById('RAPL');
+        const strokeLAveEl = document.getElementById('strokeLAve');
+        const pressureAveEl = document.getElementById('pressureAve');
+        const CFAEl = document.getElementById('CFA');
+        const finalDataGroup = document.getElementById('finalDataGroup');
+
+        // 初始化状态变量
+        let isDrawing = false;
+        let currentTool = 'pen';
+        let lastX = 0;
+        let lastY = 0;
+        let baseLineWidth = parseInt(lineWidth.value);
+        let isRecording = false;
+        let startTime = 0;
+        let endTime = 0;
+        let airTime = 0;
+        let paperTime = 0;
+        let airLength = 0;
+        let paperLength = 0;
+        let strokeNum = 0;
+        let pressureData = [];
+        let pressureTime = [];
+        let strokes = [];
+        let currentStroke = { points: [], startTime: 0, endTime: 0, length: 0, pressureSum: 0, pressureCount: 0 };
+
+        // 初始化画布样式
+        function initCanvasStyle() {
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = colorPicker.value;
+            ctx.lineWidth = baseLineWidth;
+        }
+
+        // 调整画布大小
+        function resizeCanvas() {
+            const canvasParent = canvas.parentElement;
+            const canvasWidth = canvasParent.clientWidth - 30;
+            const canvasHeight = canvasParent.clientHeight - 100;
+
+            const tempImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            ctx.putImageData(tempImageData, 0, 0);
+
+            initCanvasStyle();
+        }
+
+        // 开始录制
+        function startRecording() {
+            isRecording = true;
+            startTime = Date.now();
+            airTime = 0;
+            paperTime = 0;
+            airLength = 0;
+            paperLength = 0;
+            strokeNum = 0;
+            pressureData = [];
+            pressureTime = [];
+            strokes = [];
+            currentStroke = { points: [], startTime: 0, endTime: 0, length: 0, pressureSum: 0, pressureCount: 0 };
+
+            airTimeEl.textContent = '0';
+            paperTimeEl.textContent = '0';
+            airLengthEl.textContent = '0';
+            paperLengthEl.textContent = '0';
+            strokeNumEl.textContent = '0';
+            currentPressureEl.textContent = '0';
+            finalDataGroup.style.display = 'none';
+            pressureChart.data.labels = [];
+            pressureChart.data.datasets[0].data = [];
+            pressureChart.update();
+        }
+
+        // 结束录制并计算数据
+        function endRecording() {
+            if (!isRecording) return;
+
+            isRecording = false;
+            endTime = Date.now();
+            const timeTotal = endTime - startTime;
+            const RAT = (airTime / timeTotal * 100).toFixed(2);
+            const RAPT = (paperTime / timeTotal * 100).toFixed(2);
+            let RAPL = 0;
+            if (paperLength > 0) {
+                RAPL = (airLength / paperLength).toFixed(2);
+            }
+            let strokeLAve = 0;
+            if (strokeNum > 0) {
+                strokeLAve = (paperLength / strokeNum).toFixed(2);
+            }
+            let pressureAve = 0;
+            if (pressureData.length > 0) {
+                pressureAve = (pressureData.reduce((a, b) => a + b, 0) / pressureData.length).toFixed(2);
+            }
+            const CFA = calculateDrawingArea();
+
+            timeTotalEl.textContent = timeTotal;
+            RATEl.textContent = `${RAT}%`;
+            RAPTEl.textContent = `${RAPT}%`;
+            RAPLEl.textContent = RAPL;
+            strokeLAveEl.textContent = strokeLAve;
+            pressureAveEl.textContent = pressureAve;
+            CFAEl.textContent = CFA;
+            finalDataGroup.style.display = 'flex';
+        }
+
+        // 计算绘画面积
+        function calculateDrawingArea() {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+            let count = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+                if (pixels[i] !== 255 || pixels[i + 1] !== 255 || pixels[i + 2] !== 255) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        // 开始绘制
+        function startDrawing(e) {
+            if (!isRecording) return;
+
+            isDrawing = true;
+            const { x, y, pressure } = getCanvasPosAndPressure(e);
+            lastX = x;
+            lastY = y;
+            currentStroke.startTime = Date.now();
+            currentStroke.points = [{ x, y, pressure }];
+            currentStroke.length = 0;
+            currentStroke.pressureSum = pressure;
+            currentStroke.pressureCount = 1;
+
+            if (pressure > 0) {
+                pressureData.push(pressure);
+                pressureTime.push(Date.now() - startTime);
+                pressureChart.data.labels = pressureTime;
+                pressureChart.data.datasets[0].data = pressureData;
+                pressureChart.update();
+                currentPressureEl.textContent = pressure.toFixed(2);
+            }
+        }
+
+        // 绘制过程
+        function draw(e) {
+            if (!isDrawing || !isRecording) return;
+            e.preventDefault();
+
+            const { x, y, pressure } = getCanvasPosAndPressure(e);
+            const currentColor = currentTool === 'eraser' ? '#ffffff' : colorPicker.value;
+            
+            const currentWidth = pressure 
+                ? Math.max(baseLineWidth * pressure, 1) 
+                : parseInt(lineWidth.value);
+
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = currentWidth;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            const distance = Math.sqrt((x - lastX) ** 2 + (y - lastY) ** 2);
+            currentStroke.length += distance;
+            currentStroke.pressureSum += pressure;
+            currentStroke.pressureCount += 1;
+            currentStroke.points.push({ x, y, pressure });
+
+            if (currentTool !== 'eraser') {
+                paperLength += distance;
+                paperLengthEl.textContent = paperLength.toFixed(2);
+            }
+
+            if (pressure > 0) {
+                pressureData.push(pressure);
+                pressureTime.push(Date.now() - startTime);
+                pressureChart.data.labels = pressureTime;
+                pressureChart.data.datasets[0].data = pressureData;
+                pressureChart.update();
+                currentPressureEl.textContent = pressure.toFixed(2);
+            }
+
+            [lastX, lastY] = [x, y];
+        }
+
+        // 结束绘制
+        function endDrawing() {
+            if (!isDrawing || !isRecording) return;
+
+            isDrawing = false;
+            currentStroke.endTime = Date.now();
+            strokes.push(currentStroke);
+            strokeNum++;
+            strokeNumEl.textContent = strokeNum;
+
+            const strokeTime = currentStroke.endTime - currentStroke.startTime;
+            if (currentTool === 'eraser') {
+                airTime += strokeTime;
+                airTimeEl.textContent = airTime;
+            } else {
+                paperTime += strokeTime;
+                paperTimeEl.textContent = paperTime;
+            }
+        }
+
+        // 获取坐标和压力
+        function getCanvasPosAndPressure(e) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY, pressure = 0;
+
+            if (e.type.includes('touch')) {
+                const touch = e.touches[0];
+                clientX = touch.clientX;
+                clientY = touch.clientY;
+                pressure = touch.force || 0; 
+            } else if (e.type.includes('pointer')) {
+                clientX = e.clientX;
+                clientY = e.clientY;
+                pressure = e.pressure || 0;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top,
+                pressure: pressure > 0 ? pressure : 0
+            };
+        }
+
+        // 工具切换
+        penBtn.addEventListener('click', () => {
+            currentTool = 'pen';
+            penBtn.classList.add('active');
+            eraserBtn.classList.remove('active');
+            initCanvasStyle();
+        });
+
+        eraserBtn.addEventListener('click', () => {
+            currentTool = 'eraser';
+            eraserBtn.classList.add('active');
+            penBtn.classList.remove('active');
+            initCanvasStyle();
+        });
+
+        // 清空画布
+        clearBtn.addEventListener('click', () => {
+            if (confirm('确定要清空画布吗？')) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (isRecording) {
+                    startRecording();
+                }
+            }
+        });
+
+        // 开始绘制
+        startBtn.addEventListener('click', () => {
+            startRecording();
+            startBtn.disabled = true;
+            endBtn.disabled = false;
+        });
+
+        // 结束绘制
+        endBtn.addEventListener('click', () => {
+            endRecording();
+            startBtn.disabled = false;
+            endBtn.disabled = true;
+        });
+
+        // 保存数据
+        saveBtn.addEventListener('click', () => {
+            if (!isRecording && strokes.length > 0) {
+                const data = {
+                    timeTotal: endTime - startTime,
+                    airTime,
+                    paperTime,
+                    RAT: (airTime / (endTime - startTime) * 100).toFixed(2),
+                    RAPT: (paperTime / (endTime - startTime) * 100).toFixed(2),
+                    airLength,
+                    paperLength,
+                    RAPL: paperLength > 0 ? (airLength / paperLength).toFixed(2) : 0,
+                    strokeNum,
+                    strokeLAve: paperLength > 0 ? (paperLength / strokeNum).toFixed(2) : 0,
+                    speed: paperLength > 0 ? (paperLength / paperTime * 1000).toFixed(2) : 0,
+                    paperspeed: paperLength > 0 ? (paperLength / paperTime * 1000).toFixed(2) : 0,
+                    pressureAve: pressureData.length > 0 ? (pressureData.reduce((a, b) => a + b, 0) / pressureData.length).toFixed(2) : 0,
+                    CFA: calculateDrawingArea(),
+                    strokes,
+                    image: canvas.toDataURL('image/png')
+                };
+                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `绘画数据_${new Date().getTime()}.json`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+            }
+        });
+
+        // 绑定事件
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', endDrawing);
+        canvas.addEventListener('touchcancel', endDrawing);
+
+        canvas.addEventListener('pointerdown', startDrawing);
+        canvas.addEventListener('pointermove', draw);
+        canvas.addEventListener('pointerup', endDrawing);
+        canvas.addEventListener('pointerout', endDrawing);
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', endDrawing);
+        canvas.addEventListener('mouseout', endDrawing);
+
+        // 初始化
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            initCanvasStyle();
+            startBtn.disabled = false;
+            endBtn.disabled = true;
+        });
+        window.addEventListener('orientationchange', resizeCanvas);
+    </script>
+</body>
+</html>
